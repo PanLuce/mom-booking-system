@@ -1,374 +1,153 @@
 <?php
 /**
- * HTML výstupy pro admin stránky
+ * Admin pages management class
  */
-class MomAdminPages {
+class MomBookingAdminPages {
 
-    private $course_manager;
-    private $customer_manager;
-    private $enrollment_manager;
+    private static $instance = null;
+    private $form_processed = false;
 
-    public function __construct($course_manager, $customer_manager, $enrollment_manager) {
-        $this->course_manager = $course_manager;
-        $this->customer_manager = $customer_manager;
-        $this->enrollment_manager = $enrollment_manager;
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __construct() {
+        add_action('admin_init', [$this, 'handle_form_submissions']);
+    }
+
+    public function handle_form_submissions() {
+        if ($this->form_processed || !isset($_POST['mom_action'])) {
+            return;
+        }
+
+        if (!wp_verify_nonce($_POST['_wpnonce'], 'mom_admin_action')) {
+            wp_die(__('Bezpečnostní kontrola selhala', 'mom-booking-system'));
+        }
+
+        $this->form_processed = true;
+
+        switch ($_POST['mom_action']) {
+            case 'create_course':
+                $this->handle_create_course();
+                break;
+            case 'update_course':
+                $this->handle_update_course();
+                break;
+            case 'create_user':
+                $this->handle_create_user();
+                break;
+        }
+    }
+
+    private function handle_create_course() {
+        $course_id = MomCourseManager::get_instance()->create_course($_POST);
+
+        if ($course_id) {
+            wp_redirect(admin_url('admin.php?page=mom-booking-admin&course_created=1'));
+            exit;
+        } else {
+            wp_redirect(admin_url('admin.php?page=mom-course-new&error=create_failed'));
+            exit;
+        }
+    }
+
+    private function handle_update_course() {
+        $course_id = intval($_POST['course_id']);
+        $success = MomCourseManager::get_instance()->update_course($course_id, $_POST);
+
+        if ($success) {
+            wp_redirect(admin_url('admin.php?page=mom-booking-admin&course_updated=1'));
+            exit;
+        } else {
+            wp_redirect(admin_url('admin.php?page=mom-course-new&edit=' . $course_id . '&error=update_failed'));
+            exit;
+        }
+    }
+
+    private function handle_create_user() {
+        $user_id = MomUserManager::get_instance()->create_user($_POST);
+
+        if (is_wp_error($user_id)) {
+            if ($user_id->get_error_code() === 'duplicate_email') {
+                wp_redirect(admin_url('admin.php?page=mom-users&error=duplicate_email'));
+            } else {
+                wp_redirect(admin_url('admin.php?page=mom-users&error=create_failed'));
+            }
+            exit;
+        } else {
+            wp_redirect(admin_url('admin.php?page=mom-users&user_created=1'));
+            exit;
+        }
     }
 
     public function courses_overview_page() {
-        $courses = $this->course_manager->get_all_courses();
+        // Success messages
+        $this->display_admin_notices();
 
-        echo '<div class="wrap">';
-        echo '<h1>Kurzy maminek - Přehled</h1>';
+        $courses = MomCourseManager::get_instance()->get_all_courses();
 
-        if (empty($courses)) {
-            $this->render_no_courses_message();
-        } else {
-            $this->render_courses_table($courses);
-        }
-
-        if (isset($_GET['course_id'])) {
-            $this->render_course_detail($_GET['course_id']);
-        }
-
-        $this->render_admin_styles();
-        echo '</div>';
-    }
-
-    private function render_no_courses_message() {
-        echo '<div class="notice notice-info">';
-        echo '<p>Zatím nemáte žádné kurzy. <a href="' . admin_url('admin.php?page=mom-course-new') . '">Vytvořte první kurz</a></p>';
-        echo '</div>';
-    }
-
-    private function render_courses_table($courses) {
-        $days = ['', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
-
-        echo '<table class="wp-list-table widefat fixed striped">';
-        echo '<thead>';
-        echo '<tr>';
-        echo '<th>Název kurzu</th>';
-        echo '<th>Začátek</th>';
-        echo '<th>Den/Čas</th>';
-        echo '<th>Lekcí</th>';
-        echo '<th>Kapacita</th>';
-        echo '<th>Status</th>';
-        echo '<th>Akce</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
-
-        foreach ($courses as $course) {
-            $enrollments = $this->enrollment_manager->get_course_enrollments($course->id);
-            $lessons = $this->course_manager->get_course_lessons($course->id);
-
-            echo '<tr>';
-            echo '<td><strong>' . esc_html($course->title) . '</strong></td>';
-            echo '<td>' . date('d.m.Y', strtotime($course->start_date)) . '</td>';
-            echo '<td>' . $days[$course->day_of_week] . ' ' . date('H:i', strtotime($course->start_time)) . '</td>';
-            echo '<td>' . count($lessons) . '/' . $course->lesson_count . '</td>';
-            echo '<td>' . count($enrollments) . '/' . $course->max_capacity . '</td>';
-            echo '<td><span class="status-' . $course->status . '">' . ucfirst($course->status) . '</span></td>';
-            echo '<td>';
-            echo '<a href="?page=mom-booking-admin&course_id=' . $course->id . '" class="button">Detail</a> ';
-            echo '<a href="?page=mom-course-new&edit=' . $course->id . '" class="button">Upravit</a>';
-            echo '</td>';
-            echo '</tr>';
-        }
-
-        echo '</tbody>';
-        echo '</table>';
-    }
-
-    public function render_course_detail($course_id) {
-        $course = $this->course_manager->get_course($course_id);
-        $enrollments = $this->enrollment_manager->get_course_enrollments($course_id);
-        $lessons = $this->course_manager->get_course_lessons($course_id);
-        $available_customers = $this->customer_manager->get_customers_not_in_course($course_id);
-
-        if (!$course) return;
-
-        echo '<div class="wrap" style="margin-top: 30px;">';
-        echo '<h2>Detail kurzu: ' . esc_html($course->title) . '</h2>';
-        echo '<div class="course-detail-container">';
-
-        // Levý sloupec - Přihlášené maminky
-        echo '<div class="course-detail-column">';
-        $this->render_enrollments_section($course, $enrollments, $available_customers);
-        echo '</div>';
-
-        // Pravý sloupec - Rozvrh lekcí
-        echo '<div class="course-detail-column">';
-        $this->render_lessons_section($course, $lessons);
-        echo '</div>';
-
-        echo '</div>';
-        echo '</div>';
-    }
-
-    private function render_enrollments_section($course, $enrollments, $available_customers) {
-        echo '<h3>Přihlášené maminky (' . count($enrollments) . '/' . $course->max_capacity . ')</h3>';
-
-        if (!empty($enrollments)) {
-            foreach ($enrollments as $enrollment) {
-                echo '<div class="enrollment-item">';
-                echo '<div>';
-                echo '<strong>' . esc_html($enrollment->customer_name) . '</strong><br>';
-                echo '<small>Dítě: ' . esc_html($enrollment->child_name ?: 'Nezadáno') . '</small><br>';
-                echo '<small>' . esc_html($enrollment->customer_email) . '</small>';
-                echo '</div>';
-                echo '<div>';
-                echo '<a href="?page=mom-booking-admin&course_id=' . $course->id . '&action=unenroll&enrollment_id=' . $enrollment->id . '" ';
-                echo 'class="button button-secondary" ';
-                echo 'onclick="return confirm(\'Opravdu chcete odhlásit tuto maminku?\')">Odhlásit</a>';
-                echo '</div>';
-                echo '</div>';
-            }
-        } else {
-            echo '<p>Zatím nejsou přihlášené žádné maminky.</p>';
-        }
-
-        // Formulář pro přihlášení nové maminky
-        if (count($enrollments) < $course->max_capacity && !empty($available_customers)) {
-            $this->render_enrollment_form($course->id, $available_customers);
-        }
-    }
-
-    private function render_enrollment_form($course_id, $available_customers) {
-        echo '<h4>Přihlásit maminku</h4>';
-        echo '<form method="post">';
-        wp_nonce_field('mom_admin_nonce', 'nonce');
-        echo '<input type="hidden" name="course_id" value="' . $course_id . '">';
-        echo '<select name="customer_id" required>';
-        echo '<option value="">Vyberte maminku...</option>';
-
-        foreach ($available_customers as $customer) {
-            echo '<option value="' . $customer->id . '">';
-            echo esc_html($customer->name . ' (' . $customer->email . ')');
-            echo '</option>';
-        }
-
-        echo '</select>';
-        echo '<button type="submit" name="enroll_customer" class="button button-primary">Přihlásit</button>';
-        echo '</form>';
-    }
-
-    private function render_lessons_section($course, $lessons) {
-        echo '<h3>Rozvrh lekcí</h3>';
-
-        if (!empty($lessons)) {
-            foreach ($lessons as $lesson) {
-                $css_class = $lesson->status === 'cancelled' ? 'lesson-cancelled' : '';
-                echo '<div class="lesson-item ' . $css_class . '">';
-                echo '<div class="lesson-info">';
-                echo '<strong>Lekce ' . $lesson->lesson_number . ': ' . esc_html($lesson->title) . '</strong><br>';
-                echo '<small>' . date('d.m.Y H:i', strtotime($lesson->date_time)) . '</small><br>';
-                echo '<small>Rezervace: ' . $lesson->current_bookings . '/' . $lesson->max_capacity . '</small>';
-                echo '</div>';
-                echo '<div class="lesson-actions">';
-
-                if ($lesson->status === 'active') {
-                    echo '<a href="?page=mom-booking-admin&course_id=' . $course->id . '&action=cancel_lesson&lesson_id=' . $lesson->id . '" ';
-                    echo 'class="button button-secondary" ';
-                    echo 'onclick="return confirm(\'Opravdu chcete zrušit tuto lekci?\')">Zrušit</a>';
-                } else {
-                    echo '<span class="lesson-status-cancelled">Zrušena</span>';
-                }
-
-                echo '</div>';
-                echo '</div>';
-            }
-        } else {
-            echo '<p>Pro tento kurz ještě nejsou vygenerovány lekce.</p>';
-            echo '<a href="?page=mom-booking-admin&course_id=' . $course->id . '&action=generate_lessons" class="button button-primary">';
-            echo 'Vygenerovat lekce</a>';
-        }
+        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/courses-overview.php';
     }
 
     public function course_form_page() {
         $editing = isset($_GET['edit']);
-        $course = $editing ? $this->course_manager->get_course($_GET['edit']) : null;
-
-        echo '<div class="wrap">';
-        echo '<h1>' . ($editing ? 'Upravit kurz' : 'Nový kurz') . '</h1>';
-
-        $this->render_course_form($course, $editing);
-
-        echo '</div>';
-    }
-
-    private function render_course_form($course, $editing) {
-        echo '<form method="post">';
-        wp_nonce_field('mom_admin_nonce', 'nonce');
+        $course = null;
 
         if ($editing) {
-            echo '<input type="hidden" name="course_id" value="' . $course->id . '">';
-        }
+            $course_id = intval($_GET['edit']);
+            $course = MomCourseManager::get_instance()->get_course($course_id);
 
-        echo '<table class="form-table">';
-
-        $this->render_form_field('text', 'title', 'Název kurzu', $course->title ?? '', true);
-        $this->render_form_field('textarea', 'description', 'Popis', $course->description ?? '');
-        $this->render_form_field('date', 'start_date', 'Datum začátku', $course->start_date ?? '', true);
-        $this->render_form_field('number', 'lesson_count', 'Počet lekcí', $course->lesson_count ?? '10', true, ['min' => 1, 'max' => 52]);
-        $this->render_day_select($course->day_of_week ?? null);
-        $this->render_form_field('time', 'start_time', 'Čas začátku', $course->start_time ?? '10:00', true);
-        $this->render_form_field('number', 'lesson_duration', 'Délka lekce (minuty)', $course->lesson_duration ?? '60', true, ['min' => 30, 'max' => 180, 'step' => 15]);
-        $this->render_form_field('number', 'max_capacity', 'Maximální kapacita', $course->max_capacity ?? '10', true, ['min' => 1, 'max' => 50]);
-        $this->render_form_field('number', 'price', 'Cena kurzu (Kč)', $course->price ?? '0', false, ['min' => 0, 'step' => '0.01']);
-
-        echo '</table>';
-
-        echo '<p class="submit">';
-        echo '<button type="submit" name="' . ($editing ? 'update_course' : 'create_course') . '" class="button button-primary">';
-        echo $editing ? 'Aktualizovat kurz' : 'Vytvořit kurz';
-        echo '</button>';
-        echo ' <a href="' . admin_url('admin.php?page=mom-booking-admin') . '" class="button">Zpět</a>';
-        echo '</p>';
-
-        echo '</form>';
-    }
-
-    private function render_form_field($type, $name, $label, $value = '', $required = false, $attributes = []) {
-        echo '<tr>';
-        echo '<th><label for="' . $name . '">' . $label . '</label></th>';
-        echo '<td>';
-
-        if ($type === 'textarea') {
-            echo '<textarea id="' . $name . '" name="' . $name . '" rows="3" class="large-text"' . ($required ? ' required' : '') . '>';
-            echo esc_textarea($value);
-            echo '</textarea>';
-        } else {
-            echo '<input type="' . $type . '" id="' . $name . '" name="' . $name . '" value="' . esc_attr($value) . '"';
-            echo ' class="regular-text"' . ($required ? ' required' : '');
-
-            foreach ($attributes as $attr => $attr_value) {
-                echo ' ' . $attr . '="' . $attr_value . '"';
+            if (!$course) {
+                wp_die(__('Kurz nebyl nalezen.', 'mom-booking-system'));
             }
-
-            echo '>';
         }
 
-        echo '</td>';
-        echo '</tr>';
+        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/course-form.php';
     }
 
-    private function render_day_select($selected_day) {
-        $days = [
-            '' => 'Vyberte den...',
-            1 => 'Pondělí',
-            2 => 'Úterý',
-            3 => 'Středa',
-            4 => 'Čtvrtek',
-            5 => 'Pátek',
-            6 => 'Sobota',
-            7 => 'Neděle'
-        ];
+    public function users_page() {
+        $this->display_admin_notices();
 
-        echo '<tr>';
-        echo '<th><label for="day_of_week">Den v týdnu</label></th>';
-        echo '<td>';
-        echo '<select id="day_of_week" name="day_of_week" required>';
+        $users = MomUserManager::get_instance()->get_all_users();
 
-        foreach ($days as $value => $label) {
-            $selected = ($selected_day == $value) ? ' selected' : '';
-            echo '<option value="' . $value . '"' . $selected . '>' . $label . '</option>';
-        }
-
-        echo '</select>';
-        echo '</td>';
-        echo '</tr>';
+        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/users.php';
     }
 
-    public function customers_page() {
-        $customers = $this->customer_manager->get_all_customers();
-
-        echo '<div class="wrap">';
-        echo '<h1>Maminky</h1>';
-
-        $this->render_customers_table($customers);
-
-        echo '</div>';
+    public function bookings_page() {
+        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/bookings.php';
     }
 
-    private function render_customers_table($customers) {
-        echo '<table class="wp-list-table widefat fixed striped">';
-        echo '<thead>';
-        echo '<tr>';
-        echo '<th>Jméno</th>';
-        echo '<th>Email</th>';
-        echo '<th>Telefon</th>';
-        echo '<th>Dítě</th>';
-        echo '<th>Věk dítěte</th>';
-        echo '<th>Aktivní kurzy</th>';
-        echo '</tr>';
-        echo '</thead>';
-        echo '<tbody>';
-
-        foreach ($customers as $customer) {
-            $child_age = $this->customer_manager->calculate_child_age($customer->child_birth_date);
-            $stats = $this->customer_manager->get_customer_statistics($customer->id);
-
-            echo '<tr>';
-            echo '<td><strong>' . esc_html($customer->name) . '</strong></td>';
-            echo '<td>' . esc_html($customer->email) . '</td>';
-            echo '<td>' . esc_html($customer->phone ?: '-') . '</td>';
-            echo '<td>' . esc_html($customer->child_name ?: '-') . '</td>';
-            echo '<td>' . ($child_age ?: '-') . '</td>';
-            echo '<td>' . $stats['active_courses'] . '</td>';
-            echo '</tr>';
-        }
-
-        echo '</tbody>';
-        echo '</table>';
+    public function settings_page() {
+        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/settings.php';
     }
 
-    private function render_admin_styles() {
-        echo '<style>
-        .status-active { color: green; font-weight: bold; }
-        .status-inactive { color: orange; }
-        .status-completed { color: gray; }
-
-        .course-detail-container {
-            display: flex;
-            gap: 30px;
-            margin-top: 20px;
+    private function display_admin_notices() {
+        if (isset($_GET['course_created'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . __('Kurz byl úspěšně vytvořen a lekce vygenerovány!', 'mom-booking-system') . '</p></div>';
         }
 
-        .course-detail-column {
-            flex: 1;
+        if (isset($_GET['course_updated'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . __('Kurz byl úspěšně aktualizován!', 'mom-booking-system') . '</p></div>';
         }
 
-        .enrollment-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border: 1px solid #ddd;
-            margin: 8px 0;
-            background: #f9f9f9;
-            border-radius: 4px;
+        if (isset($_GET['user_created'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . __('Uživatel byl úspěšně vytvořen!', 'mom-booking-system') . '</p></div>';
         }
 
-        .lesson-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border-left: 4px solid #0073aa;
-            margin: 8px 0;
-            background: white;
-            border-radius: 0 4px 4px 0;
-        }
+        if (isset($_GET['error'])) {
+            $error_messages = [
+                'duplicate_email' => __('Uživatel s tímto emailem už existuje!', 'mom-booking-system'),
+                'create_failed' => __('Chyba při vytváření záznamu.', 'mom-booking-system'),
+                'update_failed' => __('Chyba při aktualizaci záznamu.', 'mom-booking-system')
+            ];
 
-        .lesson-cancelled {
-            border-left-color: #dc3232;
-            background: #ffeaea;
+            $error = $_GET['error'];
+            if (isset($error_messages[$error])) {
+                echo '<div class="notice notice-error is-dismissible"><p>' . $error_messages[$error] . '</p></div>';
+            }
         }
-
-        .lesson-status-cancelled {
-            color: #dc3232;
-            font-weight: bold;
-        }
-        </style>';
     }
 }
