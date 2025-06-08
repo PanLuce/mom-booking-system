@@ -162,28 +162,18 @@ class MomBookingSystem {
 
         // Initialize admin (only in admin)
         if (is_admin()) {
-            error_log('Initializing admin components...');
+            error_log('=== ADMIN CONTEXT DEBUG ===');
+            error_log('is_admin(): ' . (is_admin() ? 'TRUE' : 'FALSE'));
+            error_log('Current user ID: ' . get_current_user_id());
+            error_log('Current hook: ' . current_action());
+            error_log('Admin menu classes about to initialize...');
 
-            if (class_exists('MomBookingAdminPages')) {
-                MomBookingAdminPages::get_instance();
-                error_log('MomBookingAdminPages initialized');
-            } else {
-                error_log('ERROR: MomBookingAdminPages class not found');
-            }
+            MomBookingAdminMenu::get_instance();
+            MomBookingAdminPages::get_instance();
+            MomBookingAdminAjax::get_instance();
 
-            if (class_exists('MomBookingAdminMenu')) {
-                MomBookingAdminMenu::get_instance();
-                error_log('MomBookingAdminMenu initialized');
-            } else {
-                error_log('ERROR: MomBookingAdminMenu class not found');
-            }
-
-            if (class_exists('MomBookingAdminAjax')) {
-                MomBookingAdminAjax::get_instance();
-                error_log('MomBookingAdminAjax initialized');
-            } else {
-                error_log('ERROR: MomBookingAdminAjax class not found');
-            }
+            error_log('Admin classes initialized, checking existence:');
+            error_log('- MomBookingAdminMenu instance: ' . (MomBookingAdminMenu::get_instance() ? 'EXISTS' : 'NULL'));
         }
 
         // Initialize frontend
@@ -279,4 +269,25 @@ add_action('plugins_loaded', function() {
 if (!function_exists('get_plugin_data')) {
     require_once(ABSPATH . 'wp-admin/includes/plugin.php');
 }
+
+// PŘÍMÝ TEST MENU - mimo třídy
+add_action('admin_menu', function() {
+    error_log('=== DIRECT MENU TEST ===');
+    error_log('Direct hook fired at priority 10');
+    error_log('User can manage_options: ' . (current_user_can('manage_options') ? 'TRUE' : 'FALSE'));
+
+    $direct_menu = add_menu_page(
+        'DIRECT TEST',
+        'DIRECT TEST',
+        'manage_options',
+        'direct-test-menu',
+        function() {
+            echo '<h1>Direct menu works!</h1>';
+        },
+        'dashicons-admin-tools',
+        25
+    );
+
+    error_log('Direct menu result: ' . var_export($direct_menu, true));
+}, 5); // Vyšší priorita než normálně
 ?>
