@@ -1,6 +1,7 @@
 <?php
 /**
- * Admin menu management class
+ * Updated Admin Menu with new pages
+ * File: includes/admin/class-admin-menu.php
  */
 class MomBookingAdminMenu {
 
@@ -66,13 +67,32 @@ class MomBookingAdminMenu {
             [MomBookingAdminPages::get_instance(), 'bookings_page']
         );
 
+        // NEW HIDDEN SUBMENU PAGES (for detailed management)
         add_submenu_page(
-            'mom-booking-admin',
-            __('Nastavení', 'mom-booking-system'),
-            __('Nastavení', 'mom-booking-system'),
+            null, // Hidden from menu
+            __('Detail lekce', 'mom-booking-system'),
+            __('Detail lekce', 'mom-booking-system'),
             'manage_options',
-            'mom-settings',
-            [MomBookingAdminPages::get_instance(), 'settings_page']
+            'mom-lesson-detail',
+            [MomBookingAdminPages::get_instance(), 'lesson_detail_page']
+        );
+
+        add_submenu_page(
+            null, // Hidden from menu
+            __('Detail uživatele', 'mom-booking-system'),
+            __('Detail uživatele', 'mom-booking-system'),
+            'manage_options',
+            'mom-user-detail',
+            [MomBookingAdminPages::get_instance(), 'user_detail_page']
+        );
+
+        add_submenu_page(
+            null, // Hidden from menu
+            __('Registrace na kurz', 'mom-booking-system'),
+            __('Registrace na kurz', 'mom-booking-system'),
+            'manage_options',
+            'mom-course-registration',
+            [MomBookingAdminPages::get_instance(), 'course_registration_page']
         );
     }
 }

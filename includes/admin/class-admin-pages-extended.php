@@ -1,26 +1,12 @@
 <?php
 /**
- * Updated Admin Pages with new functionality
- * File: includes/admin/class-admin-pages.php
+ * Extended Admin pages with new functionality
  */
-class MomBookingAdminPages {
-
-    private static $instance = null;
-    private $form_processed = false;
-
-    public static function get_instance() {
-        if (null === self::$instance) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-
-    private function __construct() {
-        add_action('admin_init', [$this, 'handle_form_submissions']);
-        add_action('admin_notices', [$this, 'display_admin_notices']);
-    }
+class MomBookingAdminPagesExtended extends MomBookingAdminPages {
 
     public function handle_form_submissions() {
+        parent::handle_form_submissions();
+
         if ($this->form_processed || !isset($_POST['mom_action'])) {
             return;
         }
@@ -32,16 +18,6 @@ class MomBookingAdminPages {
         $this->form_processed = true;
 
         switch ($_POST['mom_action']) {
-            case 'create_course':
-                $this->handle_create_course();
-                break;
-            case 'update_course':
-                $this->handle_update_course();
-                break;
-            case 'create_user':
-                $this->handle_create_user();
-                break;
-            // NEW ACTIONS
             case 'update_lesson':
                 $this->handle_update_lesson();
                 break;
@@ -57,49 +33,6 @@ class MomBookingAdminPages {
         }
     }
 
-    // Existing handlers
-    private function handle_create_course() {
-        $course_id = MomCourseManager::get_instance()->create_course($_POST);
-
-        if ($course_id) {
-            wp_redirect(admin_url('admin.php?page=mom-booking-admin&course_created=1'));
-            exit;
-        } else {
-            wp_redirect(admin_url('admin.php?page=mom-course-new&error=create_failed'));
-            exit;
-        }
-    }
-
-    private function handle_update_course() {
-        $course_id = intval($_POST['course_id']);
-        $success = MomCourseManager::get_instance()->update_course($course_id, $_POST);
-
-        if ($success) {
-            wp_redirect(admin_url('admin.php?page=mom-booking-admin&course_updated=1'));
-            exit;
-        } else {
-            wp_redirect(admin_url('admin.php?page=mom-course-new&edit=' . $course_id . '&error=update_failed'));
-            exit;
-        }
-    }
-
-    private function handle_create_user() {
-        $user_id = MomUserManager::get_instance()->create_user($_POST);
-
-        if (is_wp_error($user_id)) {
-            if ($user_id->get_error_code() === 'duplicate_email') {
-                wp_redirect(admin_url('admin.php?page=mom-users&error=duplicate_email'));
-            } else {
-                wp_redirect(admin_url('admin.php?page=mom-users&error=create_failed'));
-            }
-            exit;
-        } else {
-            wp_redirect(admin_url('admin.php?page=mom-users&user_created=1'));
-            exit;
-        }
-    }
-
-    // NEW HANDLERS
     private function handle_update_lesson() {
         $lesson_id = intval($_POST['lesson_id']);
         $success = MomLessonManager::get_instance()->update_lesson($lesson_id, $_POST);
@@ -152,39 +85,9 @@ class MomBookingAdminPages {
         exit;
     }
 
-    // EXISTING PAGE METHODS
-    public function courses_overview_page() {
-        $courses = MomCourseManager::get_instance()->get_all_courses();
-        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/courses-overview.php';
-    }
-
-    public function course_form_page() {
-        $editing = isset($_GET['edit']);
-        $course = null;
-
-        if ($editing) {
-            $course_id = intval($_GET['edit']);
-            $course = MomCourseManager::get_instance()->get_course($course_id);
-
-            if (!$course) {
-                wp_die(__('Kurz nebyl nalezen.', 'mom-booking-system'));
-            }
-        }
-
-        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/course-form.php';
-    }
-
-    public function users_page() {
-        $users = MomUserManager::get_instance()->get_all_users();
-        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/users.php';
-    }
-
-    public function bookings_page() {
-        $bookings = MomBookingManager::get_instance()->get_all_bookings();
-        include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/bookings.php';
-    }
-
-    // NEW PAGE METHODS
+    /**
+     * NEW: Lesson detail page
+     */
     public function lesson_detail_page() {
         if (!isset($_GET['id'])) {
             wp_die(__('ID lekce nebylo specifikováno.', 'mom-booking-system'));
@@ -199,9 +102,14 @@ class MomBookingAdminPages {
 
         $available_users = MomUserManager::get_instance()->get_available_users_for_lesson($lesson_id);
 
+        $this->display_admin_notices();
+
         include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/lesson-detail.php';
     }
 
+    /**
+     * NEW: User detail page
+     */
     public function user_detail_page() {
         if (!isset($_GET['id'])) {
             wp_die(__('ID uživatele nebylo specifikováno.', 'mom-booking-system'));
@@ -217,9 +125,14 @@ class MomBookingAdminPages {
         $user_bookings = MomUserManager::get_instance()->get_user_bookings($user_id);
         $user_stats = MomUserManager::get_instance()->get_user_statistics($user_id);
 
+        $this->display_admin_notices();
+
         include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/user-detail.php';
     }
 
+    /**
+     * NEW: Course registration page
+     */
     public function course_registration_page() {
         if (!isset($_GET['course_id'])) {
             wp_die(__('ID kurzu nebylo specifikováno.', 'mom-booking-system'));
@@ -236,28 +149,17 @@ class MomBookingAdminPages {
         $registered_users = MomUserManager::get_instance()->get_users_for_course($course_id);
         $course_stats = MomCourseRegistrationManager::get_instance()->get_course_registration_stats($course_id);
 
+        $this->display_admin_notices();
+
         include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/course-registration.php';
     }
 
-    public function display_admin_notices() {
-        if (!isset($_GET['page']) || strpos($_GET['page'], 'mom-') !== 0) {
-            return;
-        }
+    /**
+     * Extended admin notices with new messages
+     */
+    protected function display_admin_notices() {
+        parent::display_admin_notices();
 
-        // Success messages
-        if (isset($_GET['course_created'])) {
-            echo '<div class="notice notice-success is-dismissible"><p>' . __('Kurz byl úspěšně vytvořen a lekce vygenerovány!', 'mom-booking-system') . '</p></div>';
-        }
-
-        if (isset($_GET['course_updated'])) {
-            echo '<div class="notice notice-success is-dismissible"><p>' . __('Kurz byl úspěšně aktualizován!', 'mom-booking-system') . '</p></div>';
-        }
-
-        if (isset($_GET['user_created'])) {
-            echo '<div class="notice notice-success is-dismissible"><p>' . __('Uživatel byl úspěšně vytvořen!', 'mom-booking-system') . '</p></div>';
-        }
-
-        // NEW SUCCESS MESSAGES
         if (isset($_GET['lesson_updated'])) {
             echo '<div class="notice notice-success is-dismissible"><p>' . __('Lekce byla úspěšně aktualizována!', 'mom-booking-system') . '</p></div>';
         }
@@ -277,12 +179,9 @@ class MomBookingAdminPages {
                  '</p></div>';
         }
 
-        // Error messages
+        // Extended error messages
         if (isset($_GET['error'])) {
-            $error_messages = [
-                'duplicate_email' => __('Uživatel s tímto emailem už existuje!', 'mom-booking-system'),
-                'create_failed' => __('Chyba při vytváření záznamu.', 'mom-booking-system'),
-                'update_failed' => __('Chyba při aktualizaci záznamu.', 'mom-booking-system'),
+            $extended_error_messages = [
                 'lesson_not_found' => __('Lekce nebyla nalezena.', 'mom-booking-system'),
                 'user_not_found' => __('Uživatel nebyl nalezen.', 'mom-booking-system'),
                 'lesson_full' => __('Lekce je již plně obsazena.', 'mom-booking-system'),
@@ -292,8 +191,8 @@ class MomBookingAdminPages {
             ];
 
             $error = $_GET['error'];
-            if (isset($error_messages[$error])) {
-                echo '<div class="notice notice-error is-dismissible"><p>' . $error_messages[$error] . '</p></div>';
+            if (isset($extended_error_messages[$error])) {
+                echo '<div class="notice notice-error is-dismissible"><p>' . $extended_error_messages[$error] . '</p></div>';
             }
         }
     }
