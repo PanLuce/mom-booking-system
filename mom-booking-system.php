@@ -92,9 +92,12 @@ class MomBookingSystem {
             MomBookingAdminMenu::get_instance();
             MomBookingAdminPages::get_instance();
             MomBookingAdminAjax::get_instance();
-            error_log('Initializing admin components...');
-            $menu_instance = MomBookingAdminMenu::get_instance();
-            error_log('Menu instance created: ' . (is_object($menu_instance) ? 'YES' : 'NO'));
+
+            // DEBUG: Ověř že třídy existují
+            error_log('Admin classes check:');
+            error_log('- MomBookingAdminMenu exists: ' . (class_exists('MomBookingAdminMenu') ? 'YES' : 'NO'));
+            error_log('- MomBookingAdminPages exists: ' . (class_exists('MomBookingAdminPages') ? 'YES' : 'NO'));
+            error_log('- MomBookingAdminAjax exists: ' . (class_exists('MomBookingAdminAjax') ? 'YES' : 'NO'));
         }
 
         // Initialize frontend
