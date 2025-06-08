@@ -1,12 +1,11 @@
 <?php
 /**
- * Admin Loader
- * Single Responsibility: Load and initialize admin components
+ * Basic Admin Loader - Minimal Working Version
+ * This version focuses on getting the plugin working first
  */
 class MomAdminLoader {
 
     private $container;
-    private $admin_components = [];
 
     public function __construct(MomBookingContainer $container) {
         $this->container = $container;
@@ -16,279 +15,189 @@ class MomAdminLoader {
      * Initialize admin components
      */
     public function init() {
-        // Only load admin components in admin area
         if (!is_admin()) {
             return;
         }
 
-        $this->load_admin_files();
-        $this->register_admin_bindings();
-        $this->init_admin_components();
-        $this->init_admin_hooks();
+        // Add basic admin menu
+        add_action('admin_menu', [$this, 'add_admin_menu']);
+
+        // Add admin notices
+        add_action('admin_notices', [$this, 'admin_notices']);
     }
 
     /**
-     * Load admin-specific files
+     * Add basic admin menu
      */
-    private function load_admin_files() {
-        $admin_files = [
-            // Menu and page management
-            'includes/admin/class-admin-menu-manager.php',
-            'includes/admin/class-admin-notice-manager.php',
-
-            // Page classes
-            'includes/admin/pages/class-courses-page.php',
-            'includes/admin/pages/class-users-page.php',
-            'includes/admin/pages/class-bookings-page.php',
-            'includes/admin/pages/class-lessons-page.php',
-
-            // Form handling
-            'includes/admin/handlers/class-form-handler.php',
-            'includes/admin/handlers/class-ajax-handler.php',
-
-            // Form processors
-            'includes/admin/form-processors/class-course-form-processor.php',
-            'includes/admin/form-processors/class-user-form-processor.php',
-            'includes/admin/form-processors/class-booking-form-processor.php',
-            'includes/admin/form-processors/class-lesson-form-processor.php',
-        ];
-
-        foreach ($admin_files as $file) {
-            $file_path = MOM_BOOKING_PLUGIN_DIR . $file;
-            if (file_exists($file_path)) {
-                require_once $file_path;
-            }
-        }
-    }
-
-    /**
-     * Register admin-specific service bindings
-     */
-    private function register_admin_bindings() {
-        // Admin page classes
-        $this->container->bind('courses_page', 'MomCoursesPage');
-        $this->container->bind('users_page', 'MomUsersPage');
-        $this->container->bind('bookings_page', 'MomBookingsPage');
-        $this->container->bind('lessons_page', 'MomLessonsPage');
-
-        // Admin handlers
-        $this->container->bind('admin_menu_manager', 'MomAdminMenuManager');
-        $this->container->bind('admin_notice_manager', 'MomAdminNoticeManager');
-        $this->container->bind('form_handler', 'MomAdminFormHandler');
-        $this->container->bind('ajax_handler', 'MomAdminAjaxHandler');
-
-        // Form processors
-        $this->container->bind('course_form_processor', 'MomCourseFormProcessor');
-        $this->container->bind('user_form_processor', 'MomUserFormProcessor');
-        $this->container->bind('booking_form_processor', 'MomBookingFormProcessor');
-        $this->container->bind('lesson_form_processor', 'MomLessonFormProcessor');
-    }
-
-    /**
-     * Initialize admin components
-     */
-    private function init_admin_components() {
-        // Core admin components that should be initialized immediately
-        $core_components = [
-            'admin_menu_manager',
-            'admin_notice_manager',
-            'form_handler',
-            'ajax_handler',
-        ];
-
-        foreach ($core_components as $component) {
-            try {
-                $this->admin_components[$component] = $this->container->get($component);
-            } catch (Exception $e) {
-                error_log("Failed to initialize admin component '{$component}': " . $e->getMessage());
-            }
-        }
-    }
-
-    /**
-     * Initialize admin-specific hooks
-     */
-    private function init_admin_hooks() {
-        // Admin initialization hook
-        add_action('admin_init', [$this, 'admin_init']);
-
-        // Admin menu hook (handled by menu manager)
-        // Form handling hook (handled by form handler)
-        // AJAX hooks (handled by AJAX handler)
-
-        // Dashboard widgets
-        add_action('wp_dashboard_setup', [$this, 'add_dashboard_widgets']);
-
-        // Admin bar items
-        add_action('admin_bar_menu', [$this, 'add_admin_bar_items'], 100);
-
-        // Plugin action links
-        add_filter('plugin_action_links_' . plugin_basename(MOM_BOOKING_PLUGIN_DIR . 'mom-booking-system.php'), [$this, 'add_plugin_action_links']);
-    }
-
-    /**
-     * Admin initialization callback
-     */
-    public function admin_init() {
-        // Check user capabilities for plugin pages
-        if (isset($_GET['page']) && strpos($_GET['page'], 'mom-') === 0) {
-            if (!current_user_can('manage_options')) {
-                wp_die(__('You do not have sufficient permissions to access this page.', 'mom-booking-system'));
-            }
-        }
-
-        // Initialize page-specific components based on current page
-        $this->init_page_specific_components();
-    }
-
-    /**
-     * Initialize components based on current admin page
-     */
-    private function init_page_specific_components() {
-        $current_page = $_GET['page'] ?? '';
-
-        $page_components = [
-            'mom-booking-admin' => ['courses_page'],
-            'mom-course-new' => ['courses_page'],
-            'mom-users' => ['users_page'],
-            'mom-user-detail' => ['users_page'],
-            'mom-bookings' => ['bookings_page'],
-            'mom-lesson-detail' => ['lessons_page'],
-        ];
-
-        if (isset($page_components[$current_page])) {
-            foreach ($page_components[$current_page] as $component) {
-                if (!isset($this->admin_components[$component])) {
-                    try {
-                        $this->admin_components[$component] = $this->container->get($component);
-                    } catch (Exception $e) {
-                        error_log("Failed to initialize page component '{$component}': " . $e->getMessage());
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Add dashboard widgets
-     */
-    public function add_dashboard_widgets() {
-        wp_add_dashboard_widget(
-            'mom_booking_dashboard_widget',
-            __('Kurzy maminek - Přehled', 'mom-booking-system'),
-            [$this, 'render_dashboard_widget']
+    public function add_admin_menu() {
+        add_menu_page(
+            __('Kurzy maminek', 'mom-booking-system'),
+            __('Kurzy maminek', 'mom-booking-system'),
+            'manage_options',
+            'mom-booking-admin',
+            [$this, 'admin_page'],
+            'dashicons-groups',
+            30
         );
     }
 
     /**
-     * Render dashboard widget
+     * Basic admin page
      */
-    public function render_dashboard_widget() {
-        try {
-            $booking_manager = $this->container->get('booking_manager');
-            $course_manager = $this->container->get('course_manager');
+    public function admin_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html__('Kurzy maminek', 'mom-booking-system'); ?></h1>
 
-            $stats = [
-                'total_bookings' => $booking_manager->get_booking_statistics()['total_bookings'],
-                'active_courses' => count($course_manager->get_all_courses('active')),
-                'today_bookings' => $booking_manager->get_booking_statistics()['today_bookings'],
-            ];
+            <div class="notice notice-success">
+                <p><?php echo esc_html__('Plugin is working! The refactored architecture is loading correctly.', 'mom-booking-system'); ?></p>
+            </div>
 
-            $template_renderer = $this->container->get('template_renderer');
-            $template_renderer->render('admin/dashboard-widget', ['stats' => $stats]);
+            <div class="card">
+                <h2><?php echo esc_html__('System Status', 'mom-booking-system'); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th><?php echo esc_html__('Plugin Version', 'mom-booking-system'); ?></th>
+                        <td><?php echo esc_html(MOM_BOOKING_VERSION); ?></td>
+                    </tr>
+                    <tr>
+                        <th><?php echo esc_html__('Database Tables', 'mom-booking-system'); ?></th>
+                        <td>
+                            <?php
+                            try {
+                                $database = $this->container->get('database');
+                                if ($database->tables_exist()) {
+                                    echo '<span style="color: green;">✓ ' . esc_html__('Created', 'mom-booking-system') . '</span>';
+                                } else {
+                                    echo '<span style="color: red;">✗ ' . esc_html__('Missing', 'mom-booking-system') . '</span>';
+                                }
+                            } catch (Exception $e) {
+                                echo '<span style="color: orange;">? ' . esc_html__('Unable to check', 'mom-booking-system') . '</span>';
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><?php echo esc_html__('Container Services', 'mom-booking-system'); ?></th>
+                        <td>
+                            <?php
+                            try {
+                                $services = $this->container->get_services();
+                                echo esc_html(count($services)) . ' ' . esc_html__('services registered', 'mom-booking-system');
+                                echo '<br><small>' . esc_html(implode(', ', array_slice($services, 0, 5))) . '...</small>';
+                            } catch (Exception $e) {
+                                echo '<span style="color: red;">Error: ' . esc_html($e->getMessage()) . '</span>';
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                </table>
+            </div>
 
-        } catch (Exception $e) {
-            echo '<p>' . __('Chyba při načítání statistik.', 'mom-booking-system') . '</p>';
+            <div class="card">
+                <h2><?php echo esc_html__('Quick Actions', 'mom-booking-system'); ?></h2>
+                <p>
+                    <button type="button" class="button button-primary" onclick="testDatabase()">
+                        <?php echo esc_html__('Test Database Connection', 'mom-booking-system'); ?>
+                    </button>
+                    <button type="button" class="button" onclick="clearCache()">
+                        <?php echo esc_html__('Clear Container Cache', 'mom-booking-system'); ?>
+                    </button>
+                </p>
+                <div id="test-results"></div>
+            </div>
+        </div>
+
+        <script>
+        function testDatabase() {
+            document.getElementById('test-results').innerHTML = '<div class="notice notice-info"><p>Testing database...</p></div>';
+
+            jQuery.post(ajaxurl, {
+                action: 'mom_test_database',
+                nonce: '<?php echo wp_create_nonce('mom_admin_nonce'); ?>'
+            }, function(response) {
+                if (response.success) {
+                    document.getElementById('test-results').innerHTML = '<div class="notice notice-success"><p>Database test passed!</p></div>';
+                } else {
+                    document.getElementById('test-results').innerHTML = '<div class="notice notice-error"><p>Database test failed: ' + response.data + '</p></div>';
+                }
+            });
         }
+
+        function clearCache() {
+            document.getElementById('test-results').innerHTML = '<div class="notice notice-info"><p>Clearing cache...</p></div>';
+
+            jQuery.post(ajaxurl, {
+                action: 'mom_clear_cache',
+                nonce: '<?php echo wp_create_nonce('mom_admin_nonce'); ?>'
+            }, function(response) {
+                document.getElementById('test-results').innerHTML = '<div class="notice notice-success"><p>Cache cleared!</p></div>';
+                location.reload();
+            });
+        }
+        </script>
+
+        <style>
+        .card {
+            background: #fff;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        }
+        .card h2 {
+            margin-top: 0;
+        }
+        </style>
+        <?php
     }
 
     /**
-     * Add admin bar items
+     * Display admin notices
      */
-    public function add_admin_bar_items($admin_bar) {
-        if (!current_user_can('manage_options')) {
+    public function admin_notices() {
+        // Check if we're on our plugin pages
+        if (!isset($_GET['page']) || strpos($_GET['page'], 'mom-') !== 0) {
             return;
         }
 
-        $admin_bar->add_menu([
-            'id' => 'mom-booking-admin-bar',
-            'title' => __('Kurzy maminek', 'mom-booking-system'),
-            'href' => admin_url('admin.php?page=mom-booking-admin'),
-            'meta' => [
-                'title' => __('Přejít na administraci kurzů', 'mom-booking-system'),
-            ],
-        ]);
+        // Show success messages
+        if (isset($_GET['success'])) {
+            $message = $this->get_success_message($_GET['success']);
+            if ($message) {
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html($message) . '</p></div>';
+            }
+        }
 
-        // Add submenu items
-        $admin_bar->add_menu([
-            'id' => 'mom-booking-new-course',
-            'parent' => 'mom-booking-admin-bar',
-            'title' => __('Nový kurz', 'mom-booking-system'),
-            'href' => admin_url('admin.php?page=mom-course-new'),
-        ]);
-
-        $admin_bar->add_menu([
-            'id' => 'mom-booking-users',
-            'parent' => 'mom-booking-admin-bar',
-            'title' => __('Uživatelé', 'mom-booking-system'),
-            'href' => admin_url('admin.php?page=mom-users'),
-        ]);
-
-        $admin_bar->add_menu([
-            'id' => 'mom-booking-bookings',
-            'parent' => 'mom-booking-admin-bar',
-            'title' => __('Rezervace', 'mom-booking-system'),
-            'href' => admin_url('admin.php?page=mom-bookings'),
-        ]);
+        // Show error messages
+        if (isset($_GET['error'])) {
+            $message = $this->get_error_message($_GET['error']);
+            if ($message) {
+                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html($message) . '</p></div>';
+            }
+        }
     }
 
     /**
-     * Add plugin action links
+     * Get success message
      */
-    public function add_plugin_action_links($links) {
-        $plugin_links = [
-            '<a href="' . admin_url('admin.php?page=mom-booking-admin') . '">' . __('Nastavení', 'mom-booking-system') . '</a>',
+    private function get_success_message($key) {
+        $messages = [
+            'plugin_activated' => __('Plugin activated successfully!', 'mom-booking-system'),
+            'database_created' => __('Database tables created successfully!', 'mom-booking-system'),
         ];
 
-        return array_merge($plugin_links, $links);
+        return $messages[$key] ?? null;
     }
 
     /**
-     * Get initialized admin component
+     * Get error message
      */
-    public function get_component($component_name) {
-        if (isset($this->admin_components[$component_name])) {
-            return $this->admin_components[$component_name];
-        }
+    private function get_error_message($key) {
+        $messages = [
+            'database_failed' => __('Database operation failed.', 'mom-booking-system'),
+            'permission_denied' => __('Permission denied.', 'mom-booking-system'),
+        ];
 
-        // Try to initialize component if not already done
-        try {
-            $this->admin_components[$component_name] = $this->container->get($component_name);
-            return $this->admin_components[$component_name];
-        } catch (Exception $e) {
-            error_log("Failed to get admin component '{$component_name}': " . $e->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Check if component is loaded
-     */
-    public function has_component($component_name) {
-        return isset($this->admin_components[$component_name]);
-    }
-
-    /**
-     * Get all loaded components
-     */
-    public function get_loaded_components() {
-        return array_keys($this->admin_components);
-    }
-
-    /**
-     * Cleanup admin components (for testing)
-     */
-    public function cleanup() {
-        $this->admin_components = [];
+        return $messages[$key] ?? null;
     }
 }
