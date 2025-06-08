@@ -7,6 +7,9 @@
  * Text Domain: mom-booking-system
  */
 
+ error_log('=== MOM BOOKING SYSTEM DEBUG START ===');
+ error_log('Plugin file loaded: ' . __FILE__);
+
 // Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
@@ -37,24 +40,75 @@ class MomBookingSystem {
     }
 
     private function load_dependencies() {
+        error_log('=== LOADING DEPENDENCIES ===');
+        error_log('Plugin dir: ' . MOM_BOOKING_PLUGIN_DIR);
+        error_log('Is admin: ' . (is_admin() ? 'YES' : 'NO'));
+
         // Core classes
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-database.php';
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-course-manager.php';
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-user-manager.php';
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-booking-manager.php';
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-lesson-manager.php'; // NEW
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-course-registration-manager.php'; // NEW
+        $core_files = [
+            'includes/class-database.php',
+            'includes/class-course-manager.php',
+            'includes/class-user-manager.php',
+            'includes/class-booking-manager.php'
+        ];
+
+        foreach ($core_files as $file) {
+            $full_path = MOM_BOOKING_PLUGIN_DIR . $file;
+            error_log('Checking core file: ' . $full_path);
+            error_log('File exists: ' . (file_exists($full_path) ? 'YES' : 'NO'));
+
+            if (file_exists($full_path)) {
+                require_once $full_path;
+                error_log('Successfully loaded: ' . $file);
+            } else {
+                error_log('ERROR: Cannot find file: ' . $file);
+            }
+        }
 
         // Admin classes (only in admin)
         if (is_admin()) {
-            require_once MOM_BOOKING_PLUGIN_DIR . 'includes/admin/class-admin-menu.php';
-            require_once MOM_BOOKING_PLUGIN_DIR . 'includes/admin/class-admin-pages.php';
-            require_once MOM_BOOKING_PLUGIN_DIR . 'includes/admin/class-admin-ajax.php';
+            error_log('Loading admin classes...');
+
+            $admin_files = [
+                'includes/admin/class-admin-pages.php',
+                'includes/admin/class-admin-menu.php',
+                'includes/admin/class-admin-ajax.php'
+            ];
+
+            foreach ($admin_files as $file) {
+                $full_path = MOM_BOOKING_PLUGIN_DIR . $file;
+                error_log('Checking admin file: ' . $full_path);
+                error_log('File exists: ' . (file_exists($full_path) ? 'YES' : 'NO'));
+
+                if (file_exists($full_path)) {
+                    require_once $full_path;
+                    error_log('Successfully loaded: ' . $file);
+                } else {
+                    error_log('ERROR: Cannot find admin file: ' . $file);
+                }
+            }
         }
 
         // Frontend classes
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/frontend/class-shortcodes.php';
-        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/frontend/class-frontend-ajax.php';
+        $frontend_files = [
+            'includes/frontend/class-shortcodes.php',
+            'includes/frontend/class-frontend-ajax.php'
+        ];
+
+        foreach ($frontend_files as $file) {
+            $full_path = MOM_BOOKING_PLUGIN_DIR . $file;
+            error_log('Checking frontend file: ' . $full_path);
+            error_log('File exists: ' . (file_exists($full_path) ? 'YES' : 'NO'));
+
+            if (file_exists($full_path)) {
+                require_once $full_path;
+                error_log('Successfully loaded: ' . $file);
+            } else {
+                error_log('ERROR: Cannot find frontend file: ' . $file);
+            }
+        }
+
+        error_log('=== DEPENDENCIES LOADING COMPLETE ===');
     }
 
     private function init_hooks() {
@@ -80,29 +134,76 @@ class MomBookingSystem {
     }
 
     public function init_components() {
+        error_log('=== INIT COMPONENTS START ===');
+
         // Initialize managers
-        MomCourseManager::get_instance();
-        MomUserManager::get_instance();
-        MomBookingManager::get_instance();
-        MomLessonManager::get_instance(); // NEW
-        MomCourseRegistrationManager::get_instance(); // NEW
+        error_log('Initializing core managers...');
+
+        if (class_exists('MomCourseManager')) {
+            MomCourseManager::get_instance();
+            error_log('MomCourseManager initialized');
+        } else {
+            error_log('ERROR: MomCourseManager class not found');
+        }
+
+        if (class_exists('MomUserManager')) {
+            MomUserManager::get_instance();
+            error_log('MomUserManager initialized');
+        } else {
+            error_log('ERROR: MomUserManager class not found');
+        }
+
+        if (class_exists('MomBookingManager')) {
+            MomBookingManager::get_instance();
+            error_log('MomBookingManager initialized');
+        } else {
+            error_log('ERROR: MomBookingManager class not found');
+        }
 
         // Initialize admin (only in admin)
         if (is_admin()) {
-            MomBookingAdminMenu::get_instance();
-            MomBookingAdminPages::get_instance();
-            MomBookingAdminAjax::get_instance();
+            error_log('Initializing admin components...');
 
-            // DEBUG: Ověř že třídy existují
-            error_log('Admin classes check:');
-            error_log('- MomBookingAdminMenu exists: ' . (class_exists('MomBookingAdminMenu') ? 'YES' : 'NO'));
-            error_log('- MomBookingAdminPages exists: ' . (class_exists('MomBookingAdminPages') ? 'YES' : 'NO'));
-            error_log('- MomBookingAdminAjax exists: ' . (class_exists('MomBookingAdminAjax') ? 'YES' : 'NO'));
+            if (class_exists('MomBookingAdminPages')) {
+                MomBookingAdminPages::get_instance();
+                error_log('MomBookingAdminPages initialized');
+            } else {
+                error_log('ERROR: MomBookingAdminPages class not found');
+            }
+
+            if (class_exists('MomBookingAdminMenu')) {
+                MomBookingAdminMenu::get_instance();
+                error_log('MomBookingAdminMenu initialized');
+            } else {
+                error_log('ERROR: MomBookingAdminMenu class not found');
+            }
+
+            if (class_exists('MomBookingAdminAjax')) {
+                MomBookingAdminAjax::get_instance();
+                error_log('MomBookingAdminAjax initialized');
+            } else {
+                error_log('ERROR: MomBookingAdminAjax class not found');
+            }
         }
 
         // Initialize frontend
-        MomBookingShortcodes::get_instance();
-        MomBookingFrontendAjax::get_instance();
+        error_log('Initializing frontend components...');
+
+        if (class_exists('MomBookingShortcodes')) {
+            MomBookingShortcodes::get_instance();
+            error_log('MomBookingShortcodes initialized');
+        } else {
+            error_log('ERROR: MomBookingShortcodes class not found');
+        }
+
+        if (class_exists('MomBookingFrontendAjax')) {
+            MomBookingFrontendAjax::get_instance();
+            error_log('MomBookingFrontendAjax initialized');
+        } else {
+            error_log('ERROR: MomBookingFrontendAjax class not found');
+        }
+
+        error_log('=== INIT COMPONENTS COMPLETE ===');
     }
 
     public function enqueue_frontend_assets() {
