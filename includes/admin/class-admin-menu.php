@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin Menu Management
+ * Admin Menu Management - OPRAVENÉ
  * File: includes/admin/class-admin-menu.php
  */
 class MomBookingAdminMenu {
@@ -19,25 +19,25 @@ class MomBookingAdminMenu {
     }
 
     public function register_menu() {
-        // Main menu
+        // Main menu - používá funkci mom_booking_admin_page
         add_menu_page(
             __('Kurzy maminek', 'mom-booking-system'),
             __('Kurzy maminek', 'mom-booking-system'),
             'manage_options',
             'mom-booking-admin',
-            [MomBookingAdminPages::get_instance(), 'courses_overview_page'],
+            'mom_booking_admin_page', // OPRAVENO - používá původní funkci
             'dashicons-groups',
             30
         );
 
-        // Submenu pages
+        // Submenu pages - používají původní funkce
         add_submenu_page(
             'mom-booking-admin',
             __('Přehled kurzů', 'mom-booking-system'),
             __('Přehled kurzů', 'mom-booking-system'),
             'manage_options',
             'mom-booking-admin',
-            [MomBookingAdminPages::get_instance(), 'courses_overview_page']
+            'mom_booking_admin_page' // OPRAVENO
         );
 
         add_submenu_page(
@@ -46,7 +46,7 @@ class MomBookingAdminMenu {
             __('Nový kurz', 'mom-booking-system'),
             'manage_options',
             'mom-course-new',
-            [MomBookingAdminPages::get_instance(), 'course_form_page']
+            'mom_booking_new_course_page' // OPRAVENO
         );
 
         add_submenu_page(
@@ -55,7 +55,7 @@ class MomBookingAdminMenu {
             __('Uživatelé', 'mom-booking-system'),
             'manage_options',
             'mom-users',
-            [MomBookingAdminPages::get_instance(), 'users_page']
+            'mom_booking_users_page' // OPRAVENO
         );
 
         add_submenu_page(
@@ -64,17 +64,17 @@ class MomBookingAdminMenu {
             __('Rezervace', 'mom-booking-system'),
             'manage_options',
             'mom-bookings',
-            [MomBookingAdminPages::get_instance(), 'bookings_page']
+            'mom_booking_bookings_page' // OPRAVENO
         );
 
-        // Hidden pages for detailed management
+        // NEW Hidden pages for detailed management - používají nové funkce
         add_submenu_page(
             null,
             __('Detail lekce', 'mom-booking-system'),
             __('Detail lekce', 'mom-booking-system'),
             'manage_options',
             'mom-lesson-detail',
-            [MomBookingAdminPages::get_instance(), 'lesson_detail_page']
+            'mom_booking_lesson_detail_page' // NOVÁ funkce
         );
 
         add_submenu_page(
@@ -83,7 +83,7 @@ class MomBookingAdminMenu {
             __('Detail uživatele', 'mom-booking-system'),
             'manage_options',
             'mom-user-detail',
-            [MomBookingAdminPages::get_instance(), 'user_detail_page']
+            'mom_booking_user_detail_page' // NOVÁ funkce
         );
 
         add_submenu_page(
@@ -92,7 +92,7 @@ class MomBookingAdminMenu {
             __('Registrace na kurz', 'mom-booking-system'),
             'manage_options',
             'mom-course-registration',
-            [MomBookingAdminPages::get_instance(), 'course_registration_page']
+            'mom_booking_course_registration_page' // NOVÁ funkce
         );
     }
 }

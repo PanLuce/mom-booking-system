@@ -168,4 +168,111 @@ MomBookingSystem::get_instance();
 if (!function_exists('get_plugin_data')) {
     require_once(ABSPATH . 'wp-admin/includes/plugin.php');
 }
+
+/**
+ * NEW ADMIN PAGE FUNCTIONS
+ */
+function mom_booking_lesson_detail_page() {
+    if (!isset($_GET['id'])) {
+        wp_die(__('ID lekce nebylo specifikováno.', 'mom-booking-system'));
+    }
+
+    $lesson_id = intval($_GET['id']);
+    $lesson_data = MomLessonManager::get_instance()->get_lesson_schedule($lesson_id);
+
+    if (!$lesson_data) {
+        wp_die(__('Lekce nebyla nalezena.', 'mom-booking-system'));
+    }
+
+    $available_users = MomUserManager::get_instance()->get_available_users_for_lesson($lesson_id);
+
+    include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/lesson-detail.php';
+}
+
+function mom_booking_user_detail_page() {
+    if (!isset($_GET['id'])) {
+        wp_die(__('ID uživatele nebylo specifikováno.', 'mom-booking-system'));
+    }
+
+    $user_id = intval($_GET['id']);
+    $user = MomUserManager::get_instance()->get_user($user_id);
+
+    if (!$user) {
+        wp_die(__('Uživatel nebyl nalezen.', 'mom-booking-system'));
+    }
+
+    $user_bookings = MomUserManager::get_instance()->get_user_bookings($user_id);
+    $user_stats = MomUserManager::get_instance()->get_user_statistics($user_id);
+
+    include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/user-detail.php';
+}
+
+function mom_booking_course_registration_page() {
+    if (!isset($_GET['course_id'])) {
+        wp_die(__('ID kurzu nebylo specifikováno.', 'mom-booking-system'));
+    }
+
+    $course_id = intval($_GET['course_id']);
+    $course = MomCourseManager::get_instance()->get_course($course_id);
+
+    if (!$course) {
+        wp_die(__('Kurz nebyl nalezen.', 'mom-booking-system'));
+    }
+
+    $all_users = MomUserManager::get_instance()->get_all_users();
+    $registered_users = MomUserManager::get_instance()->get_users_for_course($course_id);
+    $course_stats = MomCourseRegistrationManager::get_instance()->get_course_registration_stats($course_id);
+
+    include MOM_BOOKING_PLUGIN_DIR . 'templates/admin/course-registration.php';
+}
+
+/**
+ * ROZŠÍŘENÉ ADMIN NOTICES
+ */
+add_action('admin_notices', 'mom_booking_display_extended_notices');
+
+function mom_booking_display_extended_notices() {
+    if (!isset($_GET['page']) || strpos($_GET['page'], 'mom-') !== 0) {
+        return;
+    }
+
+    // NEW SUCCESS MESSAGES
+    if (isset($_GET['lesson_updated'])) {
+        echo '<div class="notice notice-success is-dismissible"><p>' . __('Lekce byla úspěšně aktualizována!', 'mom-booking-system') . '</p></div>';
+    }
+
+    if (isset($_GET['user_updated'])) {
+        echo '<div class="notice notice-success is-dismissible"><p>' . __('Uživatel byl úspěšně aktualizován!', 'mom-booking-system') . '</p></div>';
+    }
+
+    if (isset($_GET['user_added'])) {
+        echo '<div class="notice notice-success is-dismissible"><p>' . __('Uživatel byl přidán na lekci!', 'mom-booking-system') . '</p></div>';
+    }
+
+    if (isset($_GET['course_registration'])) {
+        $registered = intval($_GET['registered'] ?? 0);
+        echo '<div class="notice notice-success is-dismissible"><p>' .
+             sprintf(__('Uživatel byl registrován na %d lekcí kurzu!', 'mom-booking-system'), $registered) .
+             '</p></div>';
+    }
+
+    // EXTENDED ERROR MESSAGES
+    if (isset($_GET['error'])) {
+        $extended_error_messages = [
+            'lesson_not_found' => __('Lekce nebyla nalezena.', 'mom-booking-system'),
+            'user_not_found' => __('Uživatel nebyl nalezen.', 'mom-booking-system'),
+            'lesson_full' => __('Lekce je již plně obsazena.', 'mom-booking-system'),
+            'already_booked' => __('Uživatel je již na tuto lekci přihlášen.', 'mom-booking-system'),
+            'already_registered' => __('Uživatel je již na kurz registrován.', 'mom-booking-system'),
+            'has_bookings' => __('Nelze smazat - existují aktivní rezervace.', 'mom-booking-system'),
+            'duplicate_email' => __('Email je již používán jiným uživatelem.', 'mom-booking-system'),
+            'update_failed' => __('Chyba při aktualizaci záznamu.', 'mom-booking-system')
+        ];
+
+        $error = $_GET['error'];
+        if (isset($extended_error_messages[$error])) {
+            echo '<div class="notice notice-error is-dismissible"><p>' . $extended_error_messages[$error] . '</p></div>';
+        }
+    }
+}
 ?>
