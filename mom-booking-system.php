@@ -35,8 +35,12 @@ class MomBookingSystem {
     }
 
     private function __construct() {
+        error_log('=== MomBookingSystem CONSTRUCTOR ===');
+        error_log('Loading dependencies...');
         $this->load_dependencies();
+        error_log('Initializing hooks...');
         $this->init_hooks();
+        error_log('Constructor complete');
     }
 
     private function load_dependencies() {
@@ -112,16 +116,21 @@ class MomBookingSystem {
     }
 
     private function init_hooks() {
+        error_log('=== INIT HOOKS ===');
+
         // Activation/Deactivation
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
         // Initialize components
+        error_log('Registering plugins_loaded hook...');
         add_action('plugins_loaded', [$this, 'init_components']);
 
         // Assets
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+
+        error_log('All hooks registered');
     }
 
     public function activate() {
@@ -134,64 +143,41 @@ class MomBookingSystem {
     }
 
     public function init_components() {
-        error_log('=== INIT COMPONENTS START ===');
+        error_log('=== INIT COMPONENTS CALLED ===');
+        error_log('Current context: is_admin() = ' . (is_admin() ? 'TRUE' : 'FALSE'));
+        error_log('Current hook: ' . current_action());
+        error_log('Backtrace: ' . wp_debug_backtrace_summary());
 
         // Initialize managers
         error_log('Initializing core managers...');
-
-        if (class_exists('MomCourseManager')) {
-            MomCourseManager::get_instance();
-            error_log('MomCourseManager initialized');
-        } else {
-            error_log('ERROR: MomCourseManager class not found');
-        }
-
-        if (class_exists('MomUserManager')) {
-            MomUserManager::get_instance();
-            error_log('MomUserManager initialized');
-        } else {
-            error_log('ERROR: MomUserManager class not found');
-        }
-
-        if (class_exists('MomBookingManager')) {
-            MomBookingManager::get_instance();
-            error_log('MomBookingManager initialized');
-        } else {
-            error_log('ERROR: MomBookingManager class not found');
-        }
+        MomCourseManager::get_instance();
+        MomUserManager::get_instance();
+        MomBookingManager::get_instance();
 
         // Initialize admin (only in admin)
         if (is_admin()) {
-            error_log('=== ADMIN CONTEXT DEBUG ===');
-            error_log('is_admin(): ' . (is_admin() ? 'TRUE' : 'FALSE'));
-            error_log('Current user ID: ' . get_current_user_id());
-            error_log('Current hook: ' . current_action());
-            error_log('Admin menu classes about to initialize...');
+            error_log('=== ADMIN CONTEXT - INITIALIZING ADMIN CLASSES ===');
 
-            MomBookingAdminMenu::get_instance();
-            MomBookingAdminPages::get_instance();
+            // Debug před inicializací
+            error_log('About to initialize MomBookingAdminMenu...');
+            $menu_instance = MomBookingAdminMenu::get_instance();
+            error_log('MomBookingAdminMenu instance created: ' . (is_object($menu_instance) ? 'YES' : 'NO'));
+
+            error_log('About to initialize MomBookingAdminPages...');
+            $pages_instance = MomBookingAdminPages::get_instance();
+            error_log('MomBookingAdminPages instance created: ' . (is_object($pages_instance) ? 'YES' : 'NO'));
+
+            error_log('About to initialize MomBookingAdminAjax...');
             MomBookingAdminAjax::get_instance();
-
-            error_log('Admin classes initialized, checking existence:');
-            error_log('- MomBookingAdminMenu instance: ' . (MomBookingAdminMenu::get_instance() ? 'EXISTS' : 'NULL'));
+            error_log('Admin classes initialization complete');
+        } else {
+            error_log('NOT in admin context - skipping admin classes');
         }
 
         // Initialize frontend
-        error_log('Initializing frontend components...');
-
-        if (class_exists('MomBookingShortcodes')) {
-            MomBookingShortcodes::get_instance();
-            error_log('MomBookingShortcodes initialized');
-        } else {
-            error_log('ERROR: MomBookingShortcodes class not found');
-        }
-
-        if (class_exists('MomBookingFrontendAjax')) {
-            MomBookingFrontendAjax::get_instance();
-            error_log('MomBookingFrontendAjax initialized');
-        } else {
-            error_log('ERROR: MomBookingFrontendAjax class not found');
-        }
+        error_log('Initializing frontend classes...');
+        MomBookingShortcodes::get_instance();
+        MomBookingFrontendAjax::get_instance();
 
         error_log('=== INIT COMPONENTS COMPLETE ===');
     }
