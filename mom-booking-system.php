@@ -35,12 +35,17 @@ class MomBookingSystem {
     }
 
     private function __construct() {
-        error_log('=== MomBookingSystem CONSTRUCTOR ===');
-        error_log('Loading dependencies...');
+        error_log('=== MomBookingSystem CONSTRUCTOR START ===');
+
         $this->load_dependencies();
-        error_log('Initializing hooks...');
+
+        // PŘÍMÁ INICIALIZACE - místo čekání na hooky
+        error_log('Direct initialization starting...');
+        $this->init_components_directly();
+
         $this->init_hooks();
-        error_log('Constructor complete');
+
+        error_log('=== MomBookingSystem CONSTRUCTOR COMPLETE ===');
     }
 
     private function load_dependencies() {
@@ -115,6 +120,45 @@ class MomBookingSystem {
         error_log('=== DEPENDENCIES LOADING COMPLETE ===');
     }
 
+    private function init_components_directly() {
+        error_log('=== DIRECT COMPONENTS INIT ===');
+        error_log('is_admin(): ' . (is_admin() ? 'TRUE' : 'FALSE'));
+
+        // Initialize core managers
+        error_log('Initializing core managers...');
+        MomCourseManager::get_instance();
+        MomUserManager::get_instance();
+        MomBookingManager::get_instance();
+        error_log('Core managers initialized');
+
+        // Initialize admin components
+        if (is_admin()) {
+            error_log('=== ADMIN CONTEXT - INITIALIZING ADMIN CLASSES ===');
+
+            error_log('Creating MomBookingAdminMenu instance...');
+            $menu_instance = MomBookingAdminMenu::get_instance();
+            error_log('Menu instance created: ' . (is_object($menu_instance) ? 'SUCCESS' : 'FAILED'));
+
+            error_log('Creating MomBookingAdminPages instance...');
+            $pages_instance = MomBookingAdminPages::get_instance();
+            error_log('Pages instance created: ' . (is_object($pages_instance) ? 'SUCCESS' : 'FAILED'));
+
+            error_log('Creating MomBookingAdminAjax instance...');
+            $ajax_instance = MomBookingAdminAjax::get_instance();
+            error_log('Ajax instance created: ' . (is_object($ajax_instance) ? 'SUCCESS' : 'FAILED'));
+
+        } else {
+            error_log('Not in admin context - skipping admin classes');
+        }
+
+        // Initialize frontend components
+        error_log('Initializing frontend components...');
+        MomBookingShortcodes::get_instance();
+        MomBookingFrontendAjax::get_instance();
+
+        error_log('=== DIRECT COMPONENTS INIT COMPLETE ===');
+    }
+
     private function init_hooks() {
         error_log('=== INIT HOOKS ===');
 
@@ -122,15 +166,11 @@ class MomBookingSystem {
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
-        // Initialize components
-        error_log('Registering plugins_loaded hook...');
-        add_action('plugins_loaded', [$this, 'init_components']);
-
-        // Assets
+        // Assets hooks
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
 
-        error_log('All hooks registered');
+        error_log('Hooks registered');
     }
 
     public function activate() {
@@ -142,44 +182,10 @@ class MomBookingSystem {
         flush_rewrite_rules();
     }
 
+    // Zachovej původní metodu pro případné použití
     public function init_components() {
-        error_log('=== INIT COMPONENTS CALLED ===');
-        error_log('Current context: is_admin() = ' . (is_admin() ? 'TRUE' : 'FALSE'));
-        error_log('Current hook: ' . current_action());
-        error_log('Backtrace: ' . wp_debug_backtrace_summary());
-
-        // Initialize managers
-        error_log('Initializing core managers...');
-        MomCourseManager::get_instance();
-        MomUserManager::get_instance();
-        MomBookingManager::get_instance();
-
-        // Initialize admin (only in admin)
-        if (is_admin()) {
-            error_log('=== ADMIN CONTEXT - INITIALIZING ADMIN CLASSES ===');
-
-            // Debug před inicializací
-            error_log('About to initialize MomBookingAdminMenu...');
-            $menu_instance = MomBookingAdminMenu::get_instance();
-            error_log('MomBookingAdminMenu instance created: ' . (is_object($menu_instance) ? 'YES' : 'NO'));
-
-            error_log('About to initialize MomBookingAdminPages...');
-            $pages_instance = MomBookingAdminPages::get_instance();
-            error_log('MomBookingAdminPages instance created: ' . (is_object($pages_instance) ? 'YES' : 'NO'));
-
-            error_log('About to initialize MomBookingAdminAjax...');
-            MomBookingAdminAjax::get_instance();
-            error_log('Admin classes initialization complete');
-        } else {
-            error_log('NOT in admin context - skipping admin classes');
-        }
-
-        // Initialize frontend
-        error_log('Initializing frontend classes...');
-        MomBookingShortcodes::get_instance();
-        MomBookingFrontendAjax::get_instance();
-
-        error_log('=== INIT COMPONENTS COMPLETE ===');
+        error_log('init_components() called via hook');
+        // Tato metoda se už nebude používat, ale zachovej ji
     }
 
     public function enqueue_frontend_assets() {
@@ -248,7 +254,9 @@ class MomBookingSystem {
 
 // Initialize plugin
 add_action('plugins_loaded', function() {
+    error_log('=== PLUGINS_LOADED HOOK FIRED ===');
     MomBookingSystem::get_instance();
+    error_log('MomBookingSystem instance requested');
 }, 10);
 
 // Plugin info for WordPress
