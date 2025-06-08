@@ -92,6 +92,9 @@ class MomBookingSystem {
             MomBookingAdminMenu::get_instance();
             MomBookingAdminPages::get_instance();
             MomBookingAdminAjax::get_instance();
+            error_log('Initializing admin components...');
+            $menu_instance = MomBookingAdminMenu::get_instance();
+            error_log('Menu instance created: ' . (is_object($menu_instance) ? 'YES' : 'NO'));
         }
 
         // Initialize frontend
