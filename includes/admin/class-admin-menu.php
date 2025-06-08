@@ -1,6 +1,7 @@
 <?php
 /**
- * Detailní debug admin menu - nahraď celý obsah includes/admin/class-admin-menu.php
+ * Admin Menu Management
+ * File: includes/admin/class-admin-menu.php
  */
 class MomBookingAdminMenu {
 
@@ -9,113 +10,89 @@ class MomBookingAdminMenu {
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
-            error_log('MomBookingAdminMenu: Instance created');
         }
         return self::$instance;
     }
 
     private function __construct() {
-        error_log('MomBookingAdminMenu: Constructor called');
-        error_log('MomBookingAdminMenu: is_admin() = ' . (is_admin() ? 'TRUE' : 'FALSE'));
-        error_log('MomBookingAdminMenu: current_user_can(manage_options) = ' . (current_user_can('manage_options') ? 'TRUE' : 'FALSE'));
-
-        // Registruj hook
         add_action('admin_menu', [$this, 'register_menu']);
-        error_log('MomBookingAdminMenu: admin_menu hook registered');
-
-        // Přidej další debug hooky
-        add_action('admin_init', function() {
-            error_log('MomBookingAdminMenu: admin_init hook fired');
-        });
-
-        add_action('current_screen', function() {
-            error_log('MomBookingAdminMenu: current_screen hook fired');
-        });
     }
 
     public function register_menu() {
-        error_log('MomBookingAdminMenu: register_menu() called!');
-        error_log('MomBookingAdminMenu: Current user ID: ' . get_current_user_id());
-        error_log('MomBookingAdminMenu: Current user roles: ' . implode(', ', wp_get_current_user()->roles));
-        error_log('MomBookingAdminMenu: manage_options capability: ' . (current_user_can('manage_options') ? 'TRUE' : 'FALSE'));
-
-        // Zkontroluj globální $menu proměnnou
-        global $menu;
-        error_log('MomBookingAdminMenu: Global $menu exists: ' . (isset($menu) ? 'TRUE' : 'FALSE'));
-
-        // Zkus nejprve úplně základní menu
-        error_log('MomBookingAdminMenu: Attempting to register basic menu...');
-
-        $hook = add_menu_page(
-            'Kurzy maminek',
-            'Kurzy maminek',
+        // Main menu
+        add_menu_page(
+            __('Kurzy maminek', 'mom-booking-system'),
+            __('Kurzy maminek', 'mom-booking-system'),
             'manage_options',
             'mom-booking-admin',
-            [$this, 'test_callback'],
+            [MomBookingAdminPages::get_instance(), 'courses_overview_page'],
             'dashicons-groups',
             30
         );
 
-        error_log('MomBookingAdminMenu: add_menu_page returned: ' . var_export($hook, true));
+        // Submenu pages
+        add_submenu_page(
+            'mom-booking-admin',
+            __('Přehled kurzů', 'mom-booking-system'),
+            __('Přehled kurzů', 'mom-booking-system'),
+            'manage_options',
+            'mom-booking-admin',
+            [MomBookingAdminPages::get_instance(), 'courses_overview_page']
+        );
 
-        if ($hook) {
-            error_log('MomBookingAdminMenu: SUCCESS - Menu registered with hook: ' . $hook);
-        } else {
-            error_log('MomBookingAdminMenu: ERROR - Menu registration failed!');
-        }
+        add_submenu_page(
+            'mom-booking-admin',
+            __('Nový kurz', 'mom-booking-system'),
+            __('Nový kurz', 'mom-booking-system'),
+            'manage_options',
+            'mom-course-new',
+            [MomBookingAdminPages::get_instance(), 'course_form_page']
+        );
 
-        // Zkontroluj, jestli se menu přidalo do globálního $menu
-        global $menu;
-        if (isset($menu)) {
-            error_log('MomBookingAdminMenu: Current menu items count: ' . count($menu));
-            foreach ($menu as $key => $item) {
-                if (isset($item[2]) && $item[2] === 'mom-booking-admin') {
-                    error_log('MomBookingAdminMenu: FOUND our menu in global $menu at position: ' . $key);
-                    error_log('MomBookingAdminMenu: Menu item details: ' . var_export($item, true));
-                }
-            }
-        }
+        add_submenu_page(
+            'mom-booking-admin',
+            __('Uživatelé', 'mom-booking-system'),
+            __('Uživatelé', 'mom-booking-system'),
+            'manage_options',
+            'mom-users',
+            [MomBookingAdminPages::get_instance(), 'users_page']
+        );
 
-        // Zkus ještě submenu
-        if ($hook) {
-            error_log('MomBookingAdminMenu: Adding submenu...');
+        add_submenu_page(
+            'mom-booking-admin',
+            __('Rezervace', 'mom-booking-system'),
+            __('Rezervace', 'mom-booking-system'),
+            'manage_options',
+            'mom-bookings',
+            [MomBookingAdminPages::get_instance(), 'bookings_page']
+        );
 
-            $submenu_hook = add_submenu_page(
-                'mom-booking-admin',
-                'Test Submenu',
-                'Test Submenu',
-                'manage_options',
-                'mom-test-sub',
-                [$this, 'test_callback']
-            );
+        // Hidden pages for detailed management
+        add_submenu_page(
+            null,
+            __('Detail lekce', 'mom-booking-system'),
+            __('Detail lekce', 'mom-booking-system'),
+            'manage_options',
+            'mom-lesson-detail',
+            [MomBookingAdminPages::get_instance(), 'lesson_detail_page']
+        );
 
-            error_log('MomBookingAdminMenu: Submenu hook: ' . var_export($submenu_hook, true));
-        }
-    }
+        add_submenu_page(
+            null,
+            __('Detail uživatele', 'mom-booking-system'),
+            __('Detail uživatele', 'mom-booking-system'),
+            'manage_options',
+            'mom-user-detail',
+            [MomBookingAdminPages::get_instance(), 'user_detail_page']
+        );
 
-    public function test_callback() {
-        error_log('MomBookingAdminMenu: test_callback() called!');
-
-        echo '<div class="wrap">';
-        echo '<h1>Test Admin Page</h1>';
-        echo '<p>Pokud vidíš tuto stránku, callback funguje!</p>';
-        echo '<p><strong>Debug info:</strong></p>';
-        echo '<ul>';
-        echo '<li>Current user: ' . wp_get_current_user()->user_login . '</li>';
-        echo '<li>User ID: ' . get_current_user_id() . '</li>';
-        echo '<li>Can manage_options: ' . (current_user_can('manage_options') ? 'YES' : 'NO') . '</li>';
-        echo '<li>Current screen: ' . (get_current_screen() ? get_current_screen()->id : 'Unknown') . '</li>';
-        echo '</ul>';
-        echo '</div>';
+        add_submenu_page(
+            null,
+            __('Registrace na kurz', 'mom-booking-system'),
+            __('Registrace na kurz', 'mom-booking-system'),
+            'manage_options',
+            'mom-course-registration',
+            [MomBookingAdminPages::get_instance(), 'course_registration_page']
+        );
     }
 }
-
-// Přidej debug hook přímo do souboru
-add_action('admin_menu', function() {
-    error_log('Direct admin_menu hook in class-admin-menu.php fired!');
-}, 5); // Vysoká priorita
-
-add_action('_admin_menu', function() {
-    error_log('_admin_menu hook fired!');
-}, 5);
-?>

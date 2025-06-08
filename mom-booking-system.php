@@ -7,9 +7,6 @@
  * Text Domain: mom-booking-system
  */
 
- error_log('=== MOM BOOKING SYSTEM DEBUG START ===');
- error_log('Plugin file loaded: ' . __FILE__);
-
 // Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
@@ -35,142 +32,60 @@ class MomBookingSystem {
     }
 
     private function __construct() {
-        error_log('=== MomBookingSystem CONSTRUCTOR START ===');
-
         $this->load_dependencies();
-
-        // PŘÍMÁ INICIALIZACE - místo čekání na hooky
-        error_log('Direct initialization starting...');
-        $this->init_components_directly();
-
+        $this->init_components();
         $this->init_hooks();
-
-        error_log('=== MomBookingSystem CONSTRUCTOR COMPLETE ===');
     }
 
     private function load_dependencies() {
-        error_log('=== LOADING DEPENDENCIES ===');
-        error_log('Plugin dir: ' . MOM_BOOKING_PLUGIN_DIR);
-        error_log('Is admin: ' . (is_admin() ? 'YES' : 'NO'));
-
         // Core classes
-        $core_files = [
-            'includes/class-database.php',
-            'includes/class-course-manager.php',
-            'includes/class-user-manager.php',
-            'includes/class-booking-manager.php'
-        ];
-
-        foreach ($core_files as $file) {
-            $full_path = MOM_BOOKING_PLUGIN_DIR . $file;
-            error_log('Checking core file: ' . $full_path);
-            error_log('File exists: ' . (file_exists($full_path) ? 'YES' : 'NO'));
-
-            if (file_exists($full_path)) {
-                require_once $full_path;
-                error_log('Successfully loaded: ' . $file);
-            } else {
-                error_log('ERROR: Cannot find file: ' . $file);
-            }
-        }
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-database.php';
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-course-manager.php';
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-user-manager.php';
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-booking-manager.php';
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-lesson-manager.php';
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/class-course-registration-manager.php';
 
         // Admin classes (only in admin)
         if (is_admin()) {
-            error_log('Loading admin classes...');
-
-            $admin_files = [
-                'includes/admin/class-admin-pages.php',
-                'includes/admin/class-admin-menu.php',
-                'includes/admin/class-admin-ajax.php'
-            ];
-
-            foreach ($admin_files as $file) {
-                $full_path = MOM_BOOKING_PLUGIN_DIR . $file;
-                error_log('Checking admin file: ' . $full_path);
-                error_log('File exists: ' . (file_exists($full_path) ? 'YES' : 'NO'));
-
-                if (file_exists($full_path)) {
-                    require_once $full_path;
-                    error_log('Successfully loaded: ' . $file);
-                } else {
-                    error_log('ERROR: Cannot find admin file: ' . $file);
-                }
-            }
+            require_once MOM_BOOKING_PLUGIN_DIR . 'includes/admin/class-admin-pages.php';
+            require_once MOM_BOOKING_PLUGIN_DIR . 'includes/admin/class-admin-menu.php';
+            require_once MOM_BOOKING_PLUGIN_DIR . 'includes/admin/class-admin-ajax.php';
         }
 
         // Frontend classes
-        $frontend_files = [
-            'includes/frontend/class-shortcodes.php',
-            'includes/frontend/class-frontend-ajax.php'
-        ];
-
-        foreach ($frontend_files as $file) {
-            $full_path = MOM_BOOKING_PLUGIN_DIR . $file;
-            error_log('Checking frontend file: ' . $full_path);
-            error_log('File exists: ' . (file_exists($full_path) ? 'YES' : 'NO'));
-
-            if (file_exists($full_path)) {
-                require_once $full_path;
-                error_log('Successfully loaded: ' . $file);
-            } else {
-                error_log('ERROR: Cannot find frontend file: ' . $file);
-            }
-        }
-
-        error_log('=== DEPENDENCIES LOADING COMPLETE ===');
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/frontend/class-shortcodes.php';
+        require_once MOM_BOOKING_PLUGIN_DIR . 'includes/frontend/class-frontend-ajax.php';
     }
 
-    private function init_components_directly() {
-        error_log('=== DIRECT COMPONENTS INIT ===');
-        error_log('is_admin(): ' . (is_admin() ? 'TRUE' : 'FALSE'));
-
-        // Initialize core managers
-        error_log('Initializing core managers...');
+    private function init_components() {
+        // Initialize managers
         MomCourseManager::get_instance();
         MomUserManager::get_instance();
         MomBookingManager::get_instance();
-        error_log('Core managers initialized');
+        MomLessonManager::get_instance();
+        MomCourseRegistrationManager::get_instance();
 
-        // Initialize admin components
+        // Initialize admin (only in admin)
         if (is_admin()) {
-            error_log('=== ADMIN CONTEXT - INITIALIZING ADMIN CLASSES ===');
-
-            error_log('Creating MomBookingAdminMenu instance...');
-            $menu_instance = MomBookingAdminMenu::get_instance();
-            error_log('Menu instance created: ' . (is_object($menu_instance) ? 'SUCCESS' : 'FAILED'));
-
-            error_log('Creating MomBookingAdminPages instance...');
-            $pages_instance = MomBookingAdminPages::get_instance();
-            error_log('Pages instance created: ' . (is_object($pages_instance) ? 'SUCCESS' : 'FAILED'));
-
-            error_log('Creating MomBookingAdminAjax instance...');
-            $ajax_instance = MomBookingAdminAjax::get_instance();
-            error_log('Ajax instance created: ' . (is_object($ajax_instance) ? 'SUCCESS' : 'FAILED'));
-
-        } else {
-            error_log('Not in admin context - skipping admin classes');
+            MomBookingAdminPages::get_instance();
+            MomBookingAdminMenu::get_instance();
+            MomBookingAdminAjax::get_instance();
         }
 
-        // Initialize frontend components
-        error_log('Initializing frontend components...');
+        // Initialize frontend
         MomBookingShortcodes::get_instance();
         MomBookingFrontendAjax::get_instance();
-
-        error_log('=== DIRECT COMPONENTS INIT COMPLETE ===');
     }
 
     private function init_hooks() {
-        error_log('=== INIT HOOKS ===');
-
         // Activation/Deactivation
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
-        // Assets hooks
+        // Assets
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
-
-        error_log('Hooks registered');
     }
 
     public function activate() {
@@ -180,12 +95,6 @@ class MomBookingSystem {
 
     public function deactivate() {
         flush_rewrite_rules();
-    }
-
-    // Zachovej původní metodu pro případné použití
-    public function init_components() {
-        error_log('init_components() called via hook');
-        // Tato metoda se už nebude používat, ale zachovej ji
     }
 
     public function enqueue_frontend_assets() {
@@ -253,35 +162,10 @@ class MomBookingSystem {
 }
 
 // Initialize plugin
-add_action('plugins_loaded', function() {
-    error_log('=== PLUGINS_LOADED HOOK FIRED ===');
-    MomBookingSystem::get_instance();
-    error_log('MomBookingSystem instance requested');
-}, 10);
+MomBookingSystem::get_instance();
 
 // Plugin info for WordPress
 if (!function_exists('get_plugin_data')) {
     require_once(ABSPATH . 'wp-admin/includes/plugin.php');
 }
-
-// PŘÍMÝ TEST MENU - mimo třídy
-add_action('admin_menu', function() {
-    error_log('=== DIRECT MENU TEST ===');
-    error_log('Direct hook fired at priority 10');
-    error_log('User can manage_options: ' . (current_user_can('manage_options') ? 'TRUE' : 'FALSE'));
-
-    $direct_menu = add_menu_page(
-        'DIRECT TEST',
-        'DIRECT TEST',
-        'manage_options',
-        'direct-test-menu',
-        function() {
-            echo '<h1>Direct menu works!</h1>';
-        },
-        'dashicons-admin-tools',
-        25
-    );
-
-    error_log('Direct menu result: ' . var_export($direct_menu, true));
-}, 5); // Vyšší priorita než normálně
 ?>
